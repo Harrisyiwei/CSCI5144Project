@@ -2,7 +2,7 @@
 Explicit illustrative rates, not an AWS bill. Standard library only.
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, fields
 from collections import defaultdict
 from pathlib import Path
 import csv, json, random, math, argparse
@@ -82,6 +82,30 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
         for row in reads
     ):
         raise ValueError("Invalid counts")
+    # Validate object sizes
+    if any(
+        not isinstance(obj.size_bytes, int) or obj.size_bytes < 0
+        for obj in objects
+    ):
+        raise ValueError("Object size must be a non-negative integer")
+
+    # Validate unique object IDs
+    ids = [obj.id for obj in objects]
+
+    if len(ids) != len(set(ids)):
+        raise ValueError("Duplicate object IDs are not allowed")
+
+    # Validate prices
+    for field in fields(prices):
+        value = getattr(prices, field.name)
+
+        if not isinstance(value, (int, float)):
+            raise ValueError(f"Invalid price: {field.name}")
+
+        if not math.isfinite(value) or value < 0:
+            raise ValueError(
+                f"{field.name} must be a finite, non-negative number"
+            )
     states = [State() for _ in objects]
     cost = defaultdict(float, initial_put=len(objects) * prices.put)
     moves = 0

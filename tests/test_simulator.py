@@ -92,7 +92,32 @@ class Tests(unittest.TestCase):
             o, r = generate("mixed", n=5, days=10)
             export_trace(Path(t), o, r)
             self.assertEqual((o, r), load_trace(Path(t), 10))
+            
+    def test_negative_object_size(self):
+        objects = [Object("file1", -100)]
+        reads = [[0]]
 
+        with self.assertRaises(ValueError):
+            simulate(objects, reads, "standard")
+
+
+    def test_duplicate_object_ids(self):
+        objects = [
+            Object("file1", 1024),
+            Object("file1", 2048)
+        ]
+        reads = [[0, 0]]
+
+        with self.assertRaises(ValueError):
+            simulate(objects, reads, "standard")
+
+    def test_negative_storage_price(self):
+        objects = [Object("file1", GIB)]
+        reads = [[0]]
+        prices = Prices(standard=-0.023)
+
+        with self.assertRaises(ValueError):
+            simulate(objects, reads, "standard", prices=prices)
 
 if __name__ == "__main__":
     unittest.main()
