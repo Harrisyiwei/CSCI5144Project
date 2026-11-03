@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+
+# Reproducible experiment outputs (generate locally)
+results/
+
+# Editor and OS
+.DS_Store
+.vscode/
+.idea/
