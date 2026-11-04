@@ -390,5 +390,62 @@ class Tests(unittest.TestCase):
             result["costs"]["migration"],
             expected_migration
         )
+        
+    def test_intelligent_separate_storage_rates(self):
+        # Test the independent Intelligent-Tiering storage rates.
+
+        prices = Prices(
+            standard=0.05,
+            ia=0.02,
+            it_frequent=0.03,
+            it_infrequent=0.01,
+            it_archive_instant=0.002
+        )
+
+        objects = [Object("file1", GIB)]
+        reads = [[0] for _ in range(91)]
+
+        result = simulate(
+            objects, reads, "intelligent", prices=prices
+        )
+
+        expected_storage = (
+            30 * 0.03 / 30
+            + 60 * 0.01 / 30
+            + 1 * 0.002 / 30
+        )
+
+        self.assertAlmostEqual(
+            result["costs"]["storage"],
+            expected_storage
+        )
+        
+    def test_lifecycle_separate_storage_rates(self):
+        # Test Lifecycle storage rates independently of Intelligent-Tiering.
+
+        prices = Prices(
+            standard=0.05,
+            ia=0.02,
+            it_frequent=0.03,
+            it_infrequent=0.01,
+            it_archive_instant=0.002
+        )
+
+        objects = [Object("file1", GIB)]
+        reads = [[0] for _ in range(40)]
+
+        result = simulate(
+            objects, reads, "lifecycle", prices=prices
+        )
+
+        expected_storage = (
+            30 * 0.05 / 30
+            + 10 * 0.02 / 30
+        )
+
+        self.assertAlmostEqual(
+            result["costs"]["storage"],
+            expected_storage
+        )
 if __name__ == "__main__":
     unittest.main()
