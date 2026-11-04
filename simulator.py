@@ -19,6 +19,11 @@ class Prices:
     standard: float = 0.023
     ia: float = 0.0125
     aia: float = 0.004
+
+    it_frequent: float = 0.023
+    it_infrequent: float = 0.0125
+    it_archive_instant: float = 0.004
+
     get_standard: float = 0.0004 / 1000
     get_ia: float = 0.001 / 1000
     put: float = 0.005 / 1000
@@ -193,13 +198,14 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
             if count:
                 s.last = day
             s.ewma = 0.2 * count + 0.8 * s.ewma
-            rate = (
-                prices.standard
-                if s.tier == "standard"
-                else prices.aia
-                if s.tier == "aia"
-                else prices.ia
-            )
+            if policy == "intelligent":
+                rate = {
+                    "standard": prices.it_frequent,
+                    "ia": prices.it_infrequent,
+                    "aia": prices.it_archive_instant,
+                }[s.tier]
+            else:
+                rate = prices.ia if s.tier == "ia" else prices.standard
             billed = (
                 max(gb, MIN_SIZE / GIB)
                 if s.tier == "ia" and policy != "intelligent"
