@@ -10,6 +10,12 @@ import csv, json, random, math, argparse
 
 GIB = 2**30
 MIN_SIZE = 128 * 1024
+STANDARD = "standard"
+STANDARD_IA = "standard_ia"
+
+IT_FREQUENT = "it_frequent"
+IT_INFREQUENT = "it_infrequent"
+IT_ARCHIVE_INSTANT = "it_archive_instant"
 POLICIES = ("standard", "lifecycle", "intelligent", "adaptive")
 SCENARIOS = ("hot", "cold", "bursty", "cooling", "mixed")
 
@@ -42,7 +48,7 @@ class Object:
 
 @dataclass
 class State:
-    tier: str = "standard"
+    tier: str = STANDARD
     entered: int = 0
     last: int = 0
     ewma: float = 0
@@ -111,7 +117,8 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
             raise ValueError(
                 f"{field.name} must be a finite, non-negative number"
             )
-    states = [State() for _ in objects]
+    initial_tier = IT_FREQUENT if policy == "intelligent" else STANDARD
+    states = [State(tier=initial_tier) for _ in objects]
     cost = defaultdict(float, initial_put=len(objects) * prices.put)
     moves = 0
     daily = []
@@ -126,7 +133,7 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
                 if target == s.tier:
                     return
                 if policy != "intelligent":
-                    if s.tier == "ia":
+                    if s.tier == STANDARD_IA:
                         cost["minimum_duration"] += (
                             max(0, 30 - (day - s.entered))
                             * max(gb, MIN_SIZE / GIB)
@@ -134,7 +141,7 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
                             / 30
                         )
                         cost["migration"] += (
-                            gb * prices.retrieve + prices.get_ia + prices.put
+                            gb * prices.retrieve + prices.put
                         ) * prices.migration_multiplier
                     else:
                         cost["migration"] += (
@@ -149,17 +156,17 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
                 idle = day - s.last
                 change(
                     (
-                        "aia"
+                        IT_ARCHIVE_INSTANT
                         if idle >= 90
-                        else "ia"
+                        else IT_INFREQUENT
                         if idle >= 30
-                        else "standard"
+                        else IT_FREQUENT
                     )
                     if eligible
-                    else "standard"
+                    else IT_FREQUENT
                 )
             elif policy == "lifecycle" and eligible and day >= lifecycle_day:
-                change("ia")
+                change(STANDARD_IA)
             elif policy == "adaptive" and eligible and day >= 7:
                 expected = s.ewma * 30
                 hot = gb * prices.standard + expected * prices.get_standard
@@ -167,16 +174,16 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
                     max(gb, MIN_SIZE / GIB) * prices.ia
                     + expected * (prices.get_ia + gb * prices.retrieve)
                 )
-                if s.tier == "standard":
+                if s.tier == STANDARD:
                     if (
                         day - s.last >= 7
                         and cold + prices.transition * prices.migration_multiplier
                         < 0.9 * hot
                     ):
-                        change("ia")
+                        change(STANDARD_IA)
                 else:
                     exit_cost = (
-                        gb * prices.retrieve + prices.get_ia + prices.put
+                        gb * prices.retrieve + prices.put
                     ) * prices.migration_multiplier
                     penalty = (
                         max(0, 30 - (day - s.entered))
@@ -185,12 +192,12 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
                         / 30
                     )
                     if hot + exit_cost + penalty < 0.9 * cold:
-                        change("standard")
+                        change(STANDARD)
             if policy == "intelligent":
                 cost["get"] += count * prices.get_standard
                 if count:
-                    change("standard")
-            elif s.tier == "ia":
+                    change(IT_FREQUENT)
+            elif s.tier == STANDARD_IA:
                 cost["get"] += count * prices.get_ia
                 cost["retrieval"] += count * gb * prices.retrieve
             else:
@@ -200,15 +207,16 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
             s.ewma = 0.2 * count + 0.8 * s.ewma
             if policy == "intelligent":
                 rate = {
-                    "standard": prices.it_frequent,
-                    "ia": prices.it_infrequent,
-                    "aia": prices.it_archive_instant,
+                    IT_FREQUENT: prices.it_frequent,
+                    IT_INFREQUENT: prices.it_infrequent,
+                    IT_ARCHIVE_INSTANT: prices.it_archive_instant,
                 }[s.tier]
             else:
-                rate = prices.ia if s.tier == "ia" else prices.standard
+                rate = prices.ia if s.tier == STANDARD_IA else prices.standard
+
             billed = (
                 max(gb, MIN_SIZE / GIB)
-                if s.tier == "ia" and policy != "intelligent"
+                if s.tier == STANDARD_IA
                 else gb
             )
             cost["storage"] += billed * rate / 30
@@ -221,7 +229,7 @@ def simulate(objects, reads, policy, prices=Prices(), lifecycle_day=30):
     # Expiration at horizon settles remaining IA minimum-duration obligations.
     if policy != "intelligent":
         for o, s in zip(objects, states):
-            if s.tier == "ia":
+            if s.tier == STANDARD_IA:
                 cost["minimum_duration"] += (
                     max(0, 30 - (len(reads) - s.entered))
                     * max(o.size_bytes / GIB, MIN_SIZE / GIB)

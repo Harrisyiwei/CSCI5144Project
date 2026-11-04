@@ -22,12 +22,16 @@ class Tests(unittest.TestCase):
     def test_it_thresholds(self):
         self.assertEqual(
             self.one("intelligent", 91)["object_days"],
-            {"standard": 30, "ia": 60, "aia": 1},
+            {
+                IT_FREQUENT: 30,
+                IT_INFREQUENT: 60,
+                IT_ARCHIVE_INSTANT: 1
+            }
         )
 
     def test_it_read_reset(self):
         r = self.one("intelligent", 61, events={30: 1})
-        self.assertEqual(r["object_days"]["ia"], 1)
+        self.assertEqual(r["object_days"][IT_INFREQUENT], 1)
         self.assertNotIn("retrieval", r["costs"])
         self.assertNotIn("migration", r["costs"])
 
@@ -37,11 +41,11 @@ class Tests(unittest.TestCase):
         self.assertNotIn("monitoring", r["costs"])
 
     def test_exact_128k(self):
-        self.assertEqual(self.one("intelligent", 31, MIN_SIZE)["object_days"]["ia"], 1)
+        self.assertEqual(self.one("intelligent", 31, MIN_SIZE)["object_days"][IT_INFREQUENT], 1)
 
     def test_lifecycle_age(self):
         r = self.one("lifecycle", 60, events={d: 1 for d in range(60)})
-        self.assertEqual(r["object_days"]["ia"], 30)
+        self.assertEqual(r["object_days"][STANDARD_IA], 30)
         self.assertAlmostEqual(r["costs"]["retrieval"], 0.3)
 
     def test_minimum_expiry(self):
@@ -365,7 +369,6 @@ class Tests(unittest.TestCase):
         expected_migration = (
             0.01 / 1000
             + 0.01
-            + 0.001 / 1000
             + 0.005 / 1000
         )
 
@@ -446,6 +449,45 @@ class Tests(unittest.TestCase):
         self.assertAlmostEqual(
             result["costs"]["storage"],
             expected_storage
+        )
+        
+    def test_storage_class_state_separation(self):
+        # Test separate states for Standard-IA and Intelligent-Tiering.
+
+        objects = [Object("file1", GIB)]
+        reads = [[0] for _ in range(91)]
+
+        lifecycle = simulate(objects, reads, "lifecycle")
+        intelligent = simulate(objects, reads, "intelligent")
+
+        self.assertIn(STANDARD_IA, lifecycle["object_days"])
+        self.assertNotIn(IT_INFREQUENT, lifecycle["object_days"])
+
+        self.assertIn(IT_INFREQUENT, intelligent["object_days"])
+        self.assertNotIn(STANDARD_IA, intelligent["object_days"])
+        
+    def test_ia_to_standard_copy_cost(self):
+        # Test copy charges without an extra GET request.
+
+        objects = [Object("file1", GIB)]
+        reads = [[0] for _ in range(45)]
+
+        for day in range(15, 45):
+            reads[day][0] = 1
+
+        result = simulate(objects, reads, "adaptive")
+
+        expected_migration = (
+            Prices().transition
+            + Prices().retrieve
+            + Prices().put
+        )
+
+        self.assertEqual(result["moves"], 2)
+
+        self.assertAlmostEqual(
+            result["costs"]["migration"],
+            expected_migration
         )
 if __name__ == "__main__":
     unittest.main()
