@@ -260,6 +260,135 @@ class Tests(unittest.TestCase):
             result["costs"]["migration"],
             expected_migration
         )
+        
+    def test_intelligent_storage_tier_costs(self):
+        # Test storage costs across three Intelligent-Tiering tiers.
 
+        objects = [Object("file1", GIB)]
+        reads = [[0] for _ in range(91)]
+
+        result = simulate(objects, reads, "intelligent")
+
+        expected_storage = (
+            30 * 0.023 / 30
+            + 60 * 0.0125 / 30
+            + 1 * 0.004 / 30
+        )
+
+        self.assertAlmostEqual(
+            result["costs"]["storage"],
+            expected_storage
+        )
+        
+    def test_intelligent_small_object_storage(self):
+        # Test storage cost for an object below 128 KiB.
+
+        objects = [Object("file1", 64 * 1024)]
+        reads = [[0] for _ in range(120)]
+
+        result = simulate(objects, reads, "intelligent")
+
+        expected_storage = (
+            (64 * 1024 / GIB) * 0.023 * 4
+        )
+
+        self.assertAlmostEqual(
+            result["costs"]["storage"],
+            expected_storage
+        )
+
+        self.assertEqual(result["moves"], 0)
+        self.assertEqual(
+            result["costs"].get("monitoring", 0),
+            0
+        )
+    def test_multiple_ia_transitions(self):
+        # Test minimum storage charges across multiple IA transitions.
+
+        objects = [Object("file1", GIB)]
+        reads = [[0] for _ in range(120)]
+
+        for day in list(range(15, 20)) + list(range(65, 90)):
+            reads[day][0] = 1
+
+        result = simulate(objects, reads, "adaptive")
+
+        expected_minimum_charge = (21 + 17) * 0.0125 / 30
+
+        self.assertEqual(result["moves"], 5)
+
+        self.assertAlmostEqual(
+            result["costs"]["minimum_duration"],
+            expected_minimum_charge
+        )
+        
+    def test_intelligent_monitoring_cost(self):
+        # Test monitoring fees for eligible Intelligent-Tiering objects.
+
+        objects = [
+            Object("small", 64 * 1024),
+            Object("medium", 128 * 1024),
+            Object("large", GIB)
+        ]
+
+        reads = [[0, 0, 0] for _ in range(60)]
+
+        result = simulate(objects, reads, "intelligent")
+
+        expected_monitoring = 2 * (0.0025 / 1000) * (60 / 30)
+
+        self.assertAlmostEqual(
+            result["costs"]["monitoring"],
+            expected_monitoring
+        )
+        
+    def test_adaptive_request_cost_breakdown(self):
+        # Test user requests and migration copy costs separately.
+
+        objects = [Object("file1", GIB)]
+        reads = [[0] for _ in range(45)]
+
+        for day in range(15, 45):
+            reads[day][0] = 1
+
+        result = simulate(objects, reads, "adaptive")
+
+        expected_initial_put = 0.005 / 1000
+
+        expected_get = (
+            1 * (0.001 / 1000)
+            + 29 * (0.0004 / 1000)
+        )
+
+        expected_retrieval = 0.01
+
+        expected_migration = (
+            0.01 / 1000
+            + 0.01
+            + 0.001 / 1000
+            + 0.005 / 1000
+        )
+
+        self.assertEqual(result["moves"], 2)
+
+        self.assertAlmostEqual(
+            result["costs"]["initial_put"],
+            expected_initial_put
+        )
+
+        self.assertAlmostEqual(
+            result["costs"]["get"],
+            expected_get
+        )
+
+        self.assertAlmostEqual(
+            result["costs"]["retrieval"],
+            expected_retrieval
+        )
+
+        self.assertAlmostEqual(
+            result["costs"]["migration"],
+            expected_migration
+        )
 if __name__ == "__main__":
     unittest.main()
