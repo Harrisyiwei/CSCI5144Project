@@ -1,0 +1,23 @@
+{
+  "source": "CLUE-LDS Zenodo 10.5281/zenodo.7119953",
+  "total_raw_events": 50522931,
+  "file_accessed_events": 18447579,
+  "filtered_access_events": 94071,
+  "filtered_unique_object_ids": 14256,
+  "invalid_or_unparseable_records": 0,
+  "sample_denominator": 128,
+  "sample_bucket": 0,
+  "date_start_filter": null,
+  "date_end_filter": null,
+  "first_selected_timestamp": "2017-07-07T11:00:33Z",
+  "last_selected_timestamp": "2022-09-28T07:51:16Z",
+  "access_events_by_year": {
+    "2017": 6559,
+    "2018": 34619,
+    "2019": 37321,
+    "2020": 8058,
+    "2021": 6314,
+    "2022": 1200
+  },
+  "note": "Object IDs are consistent SHA-256 hashes of CLUE file paths; file sizes are not provided."
+}
