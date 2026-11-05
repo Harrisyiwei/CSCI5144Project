@@ -19,7 +19,7 @@ The bundled results are genuine outputs of the included code, not AWS observatio
 - Five synthetic workloads and five seeds: 100 main runs.
 - Size, migration fee, and controller overhead factorial sweep: 270 runs.
 - Retention-horizon experiments for cold and mixed workloads: 96 runs.
-- 15 unit tests with analytical and boundary checks.
+- 41 unit tests with analytical and boundary checks.
 - CSV importer/exporter, raw cost breakdowns, daily costs, summary statistics, optional figures.
 - 466 runs total. Main runs use 240 objects, sensitivity/horizon runs use 120.
 
@@ -49,4 +49,42 @@ objects.csv: columns `id,size_bytes`, one unique object ID per row.
 reads.csv: columns `day,object_id,count`, zero-based integer days and nonnegative integer counts. Rows may be sparse. Objects must already exist at day zero and retain their original size. Adapt real traces explicitly if they include writes, partial reads, creation/deletion, or changing object sizes. Do not silently treat missing sizes as measured sizes.
 
 ## Honest midterm status
-The local simulator and synthetic experiments are complete. No deployment, real AWS billing validation, measured latency study, real-world trace evaluation, or external proposal feedback was supplied or completed. Presentation speaker assignments are proposed speaking responsibilities, not evidence of historical individual contributions. The full project continues after midterm.
+The Python simulator and synthetic experiments are complete. We have also integrated real-world access histories from the CLUE-LDS dataset, combined with modeled object sizes sampled from IBM Cloud Object Storage traces.
+
+Our main real-trace experiment evaluates 5,841 objects over 180 days using 12,579 observed file-access events. We also tested 90-day and 365-day evaluation periods and five different object-size assignments. All 41 automated tests pass.
+
+The real-trace experiments show that the adaptive EWMA policy can outperform Intelligent-Tiering over shorter periods, while Intelligent-Tiering becomes cheaper over longer periods.
+
+However, the experiments still rely on modeled AWS pricing and assumptions about object retention. The object sizes are assigned rather than directly observed in CLUE. We have not deployed the system on AWS, validated costs against actual AWS bills, or measured real request latency.
+
+Future work includes improving the adaptive policy, validating AWS cost assumptions, and expanding the experimental analysis. The project will continue after the midterm presentation.
+
+## CLUE + IBM Real-World Trace Integration
+
+We extended the original simulator with real cloud-storage
+access histories from CLUE-LDS and object sizes sampled
+from IBM Cloud Object Storage traces.
+
+The experiment evaluates 5,841 objects over 180 days,
+using 12,579 observed file-access events.
+
+The original four policies remain unchanged.
+
+To reproduce the experiments:
+
+    py -m unittest discover -s tests -v
+    py real_trace.py
+    py run_real_sensitivity.py
+
+The experiments also compare 90- and 365-day periods
+and five different object-size assignments.
+
+The results suggest that Adaptive EWMA can be cheaper
+over shorter periods, while Intelligent-Tiering performs
+better over longer periods.
+
+These are simulated costs using real access histories,
+modeled object sizes, and assumed object retention.
+No real AWS S3 deployment was performed.
+
+See REAL_TRACE_METHOD.md for methodology and limitations.

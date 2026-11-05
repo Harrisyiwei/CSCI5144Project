@@ -1,0 +1,26 @@
+{
+  "access_source": "CLUE-LDS Zenodo 10.5281/zenodo.7119953 (uploaded 1-of-128 object hash bucket)",
+  "size_source": "IBM Object Store sample, deduplicated per object (uploaded CSV)",
+  "accesses": 94071,
+  "objects": 14256,
+  "unique_ibm_sizes_sampled_from": 543,
+  "seed": 5144,
+  "assigned_size_bytes_min": 336,
+  "assigned_size_bytes_median": 37200,
+  "assigned_size_bytes_max": 614944800,
+  "assigned_size_bytes_total": 94213593040,
+  "assigned_objects_at_least_128000_bytes": 4500,
+  "objects_with_observed_interaccess_gap_at_least_days": {
+    "30": 3503,
+    "90": 2859,
+    "180": 2239,
+    "365": 1133
+  },
+  "warnings": [
+    "CLUE object sizes are not observed; assigned sizes are independent random draws from a small IBM sample.",
+    "CLUE file_accessed events are not guaranteed to equal S3 GET requests.",
+    "First observed access is not verified creation time; deletions and path reuse are not resolved.",
+    "The original extraction sampled objects using a hash bucket, not a uniform sample of access requests.",
+    "Long inter-access gaps do not prove an object persisted throughout the gap."
+  ]
+}
